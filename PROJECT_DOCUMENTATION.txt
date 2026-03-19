@@ -4,7 +4,6 @@
 ================================================================================
 Project Name   : Credit Card Fraud Detection System
 Technology     : Django + React + Machine Learning (Random Forest)
-Author         : [Your Name]
 Date           : March 2026
 Version        : 1.0.0
 ================================================================================
