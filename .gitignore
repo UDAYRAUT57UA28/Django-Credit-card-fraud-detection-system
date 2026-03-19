@@ -41,12 +41,8 @@ backend/**/__pycache__/
 .env.production
 .env.*.local
 
-# ============================================================
-# ML Models & Large Files
-# Keep .pkl files out — they are large and can be retrained.
-# Users should run train_model.py + train_extra_models.py locally.
-# ============================================================
-backend/fraud_app/ml/*.pkl
+# ML Models — commit these so Render can use them without retraining
+# backend/fraud_app/ml/*.pkl   ← intentionally NOT ignored for deployment
 ml_pipeline/__pycache__/
 
 # Dataset — 150MB CSV, too large for GitHub (use Git LFS or share separately)

@@ -1,7 +1,11 @@
 import axios from "axios";
 
+// In production (Vercel), set REACT_APP_API_URL to your Render backend URL.
+// Locally it falls back to localhost:8000.
+const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+
 const API = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: `${BASE_URL}/api`,
 });
 
 // Attach JWT token to every request
@@ -19,7 +23,7 @@ API.interceptors.response.use(
       const refresh = localStorage.getItem("refresh_token");
       if (refresh) {
         try {
-          const { data } = await axios.post("http://localhost:8000/api/auth/refresh/", { refresh });
+          const { data } = await axios.post(`${BASE_URL}/api/auth/refresh/`, { refresh });
           localStorage.setItem("access_token", data.access);
           err.config.headers.Authorization = `Bearer ${data.access}`;
           return API(err.config);
@@ -33,8 +37,8 @@ API.interceptors.response.use(
   }
 );
 
-export const login = (credentials) => axios.post("http://localhost:8000/api/auth/login/", credentials);
-export const register = (data) => axios.post("http://localhost:8000/api/users/register/", data);
+export const login = (credentials) => axios.post(`${BASE_URL}/api/auth/login/`, credentials);
+export const register = (data) => axios.post(`${BASE_URL}/api/users/register/`, data);
 export const getProfile = () => API.get("/users/profile/");
 
 export const detectFraud = (data) => API.post("/detect/", data);
