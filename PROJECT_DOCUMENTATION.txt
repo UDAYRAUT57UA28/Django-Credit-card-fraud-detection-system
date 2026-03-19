@@ -1,0 +1,1072 @@
+
+================================================================================
+        CREDIT CARD FRAUD DETECTION SYSTEM — COMPLETE PROJECT DOCUMENTATION
+================================================================================
+Project Name   : Credit Card Fraud Detection System
+Technology     : Django + React + Machine Learning (Random Forest)
+Author         : [Your Name]
+Date           : March 2026
+Version        : 1.0.0
+================================================================================
+
+
+================================================================================
+1. WHY THIS PROJECT WAS CREATED
+================================================================================
+
+Credit card fraud is one of the most significant financial crimes in the modern
+world. According to global reports, billions of dollars are lost every year due
+to fraudulent credit card transactions. Traditional rule-based systems (e.g.,
+block transactions above $X amount) are too rigid and miss sophisticated fraud
+patterns.
+
+This project was created to:
+
+  - Demonstrate how Machine Learning can detect fraud patterns that humans and
+    simple rules cannot catch.
+  - Build a real-world, production-style web application that mirrors what
+    companies like Visa, Mastercard, PayPal, and Stripe use internally.
+  - Provide a complete end-to-end system: from raw data ingestion, model
+    training, REST API, to a React dashboard with real-time results.
+  - Serve as an academic project showcasing skills in Python, Django, React,
+    Machine Learning, and software architecture.
+
+Real-world motivation:
+  - In 2023, global card fraud losses exceeded $33 billion USD.
+  - Only 0.17% of transactions are fraud, making it an extreme class imbalance
+    problem — a perfect challenge for ML techniques like SMOTE.
+  - Banks need instant decisions (milliseconds) — this system provides that
+    through a REST API with a pre-trained model loaded in memory.
+
+
+================================================================================
+2. PROJECT OVERVIEW
+================================================================================
+
+This system is a full-stack web application that:
+
+  1. Accepts credit card transaction data via a web form or API.
+  2. Runs the data through a trained Machine Learning model.
+  3. Returns a Fraud Risk Score (0–100%) with a risk label:
+       - 0–30%  : Safe (Green)
+       - 30–70% : Medium Risk (Yellow)
+       - 70–100%: High Risk / Fraud (Red)
+  4. Stores every transaction in a database.
+  5. Creates fraud alerts for high-risk transactions.
+  6. Sends email notifications to card holders.
+  7. Displays analytics on a dashboard with charts.
+
+The system works WITHOUT the ML model too — a rule-based fallback engine
+activates automatically when the model files are not present.
+
+
+================================================================================
+3. TECHNOLOGY STACK
+================================================================================
+
+BACKEND:
+  - Python 3.13
+  - Django 6.0          — Web framework, ORM, Admin panel
+  - Django REST Framework 3.16 — REST API layer
+  - djangorestframework-simplejwt — JWT authentication
+  - django-cors-headers — Cross-Origin Resource Sharing for React frontend
+  - Celery 5.6          — Asynchronous task queue (background fraud processing)
+  - Redis               — Message broker for Celery
+  - SQLite (dev) / PostgreSQL (production) — Database
+
+MACHINE LEARNING:
+  - scikit-learn 1.8    — RandomForestClassifier, StandardScaler, metrics
+  - imbalanced-learn 0.14 — SMOTE (Synthetic Minority Oversampling Technique)
+  - pandas 3.0          — Data loading and preprocessing
+  - numpy 2.4           — Numerical operations
+  - joblib 1.5          — Model serialization (.pkl files)
+
+FRONTEND:
+  - React 18.3          — UI framework
+  - React Router DOM 6  — Client-side routing
+  - Axios 1.6           — HTTP client for API calls
+  - Chart.js 4.4        — Charts and graphs
+  - react-chartjs-2 5.2 — React wrapper for Chart.js
+  - Bootstrap 5.3       — CSS framework (via CDN)
+  - Bootstrap Icons 1.11 — Icon library
+
+INFRASTRUCTURE:
+  - Docker + Docker Compose — Containerization
+  - Gunicorn             — WSGI server for production
+  - Nginx                — Reverse proxy (production)
+  - AWS EC2 / PostgreSQL RDS (production deployment option)
+
+
+================================================================================
+4. PROJECT STRUCTURE
+================================================================================
+
+fraud-detection-system/
+│
+├── backend/                          Django backend application
+│   ├── fraud_project/                Project configuration
+│   │   ├── settings.py               All Django settings (DB, JWT, Celery, ML paths)
+│   │   ├── urls.py                   Root URL routing
+│   │   ├── celery.py                 Celery app configuration
+│   │   ├── wsgi.py                   WSGI entry point
+│   │   └── asgi.py                   ASGI entry point
+│   │
+│   ├── fraud_app/                    Core fraud detection application
+│   │   ├── models.py                 Database models (Card, Transaction, FraudAlert)
+│   │   ├── views.py                  API views (DetectFraud, Transactions, Cards, Alerts)
+│   │   ├── serializers.py            DRF serializers for input/output validation
+│   │   ├── services.py               ML model loading and fraud detection logic
+│   │   ├── tasks.py                  Celery async tasks
+│   │   ├── urls.py                   App-level URL patterns
+│   │   ├── admin.py                  Django admin configuration
+│   │   └── ml/                       Trained model files
+│   │       ├── fraud_model.pkl       Trained RandomForest model
+│   │       └── scaler.pkl            Fitted StandardScaler
+│   │
+│   ├── users/                        User authentication app
+│   │   ├── models.py                 Uses Django's built-in User model
+│   │   ├── views.py                  Register, Profile views
+│   │   ├── serializers.py            User serializers
+│   │   └── urls.py                   Auth URL patterns
+│   │
+│   ├── analytics/                    Analytics and statistics app
+│   │   ├── views.py                  Stats, daily trend, hourly, risky cards
+│   │   └── urls.py                   Analytics URL patterns
+│   │
+│   ├── notifications/                Notification services
+│   │   └── email_service.py          Email fraud alert sender
+│   │
+│   ├── manage.py                     Django management CLI
+│   └── db.sqlite3                    SQLite database (development)
+│
+├── frontend/                         React frontend application
+│   ├── public/
+│   │   └── index.html                HTML shell with Bootstrap CDN
+│   └── src/
+│       ├── App.js                    Root component, routing setup
+│       ├── index.js                  React DOM entry point
+│       ├── setupProxy.js             Proxy /api/ to Django port 8000
+│       │
+│       ├── context/
+│       │   ├── AuthContext.js        JWT auth state (login, logout, token refresh)
+│       │   └── ThemeContext.js       Dark/Light mode state (persisted to localStorage)
+│       │
+│       ├── services/
+│       │   └── api.js                Axios instance with JWT interceptors
+│       │
+│       ├── components/
+│       │   ├── Sidebar.js            Navigation sidebar with dark mode toggle
+│       │   ├── PrivateLayout.js      Auth guard wrapper for protected pages
+│       │   ├── StatCard.js           Reusable stat card component
+│       │   └── RiskScore.js          RiskMeter gauge + RiskBadge components
+│       │
+│       └── pages/
+│           ├── Login.js              Login page with JWT
+│           ├── Register.js           User registration page
+│           ├── Dashboard.js          Analytics dashboard with charts
+│           ├── DetectFraud.js        Transaction input + fraud analysis
+│           ├── Transactions.js       Transaction history table
+│           ├── Cards.js              Card management (add, freeze)
+│           └── Alerts.js             Fraud alert management
+│
+├── ml_pipeline/                      Machine Learning pipeline
+│   ├── dataset/
+│   │   └── creditcard.csv            Kaggle dataset (284,807 transactions)
+│   ├── preprocessing.py              Data loading, scaling, SMOTE
+│   ├── train_model.py                Model training and saving
+│   └── evaluate_model.py             Model evaluation and metrics
+│
+├── docker/
+│   ├── Dockerfile                    Docker image definition
+│   └── docker-compose.yml            Multi-service orchestration
+│
+├── venv/                             Python virtual environment
+├── requirements.txt                  Python dependencies
+├── .env.example                      Environment variable template
+└── README.md                         Quick start guide
+
+
+================================================================================
+5. THE DATASET — KAGGLE CREDIT CARD FRAUD DETECTION
+================================================================================
+
+Source      : https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud
+Provider    : Machine Learning Group, Université Libre de Bruxelles (ULB)
+File        : creditcard.csv
+File Size   : ~150 MB
+
+DATASET STATISTICS:
+  - Total transactions  : 284,807
+  - Fraudulent          : 492  (0.173% of total)
+  - Legitimate          : 284,315 (99.827% of total)
+  - Time span           : 2 days of European cardholder transactions (Sept 2013)
+  - Amount range        : $0.00 to $25,691.16
+  - Average amount      : $88.35
+
+COLUMNS (31 total):
+  - Time    : Seconds elapsed since first transaction in dataset
+              (dropped during preprocessing — not predictive across new data)
+  - V1–V28  : 28 anonymized features obtained via PCA (Principal Component
+              Analysis) transformation. Real feature names are confidential
+              for privacy reasons. These capture patterns like:
+                V1, V3, V14 — strongly correlated with fraud
+                V4, V11     — moderately correlated
+                Others      — noise or weak signals
+  - Amount  : Transaction amount in Euros (scaled using StandardScaler)
+  - Class   : Target variable — 0 = Legitimate, 1 = Fraud
+
+WHY PCA WAS APPLIED TO THE ORIGINAL DATA:
+  The original dataset contained real transaction features (merchant category,
+  location, card type, etc.) which are confidential. The dataset providers
+  applied PCA to anonymize the data while preserving the statistical patterns
+  that distinguish fraud from legitimate transactions.
+
+CLASS IMBALANCE PROBLEM:
+  Only 0.173% of transactions are fraud. This is called extreme class imbalance.
+  If a model simply predicts "Legitimate" for every transaction, it achieves
+  99.83% accuracy — but catches ZERO fraud cases. This is why accuracy alone
+  is a misleading metric for this problem.
+
+  Solution used: SMOTE (Synthetic Minority Oversampling Technique)
+  - SMOTE generates synthetic fraud samples by interpolating between existing
+    fraud samples in feature space.
+  - Applied only to the TRAINING set (never the test set) to avoid data leakage.
+  - After SMOTE: training set has balanced fraud and legitimate samples.
+
+FEATURE IMPORTANCE (from trained model):
+  The most important features for fraud detection in this model:
+    1. V14  — Strongest fraud indicator (very negative values = fraud)
+    2. V4   — High positive values correlate with fraud
+    3. V12  — Strongly negative values indicate fraud
+    4. V10  — Negative values are suspicious
+    5. V11  — Positive values correlate with fraud
+    6. Amount — Less important than PCA features alone
+    7. V3   — Negative values are a fraud signal
+    8. V17  — Contributes to detection
+    9. V7   — Moderate importance
+   10. V16  — Moderate importance
+
+KNOWN FRAUD PATTERNS IN THE DATA:
+  - Many fraud transactions have very small amounts ($1.00, $0.00) — card testing
+  - V14 below -4.0 is a very strong fraud signal
+  - V3 below -4.0 combined with negative V14 = almost certainly fraud
+  - V12 below -8.0 is a strong fraud indicator
+  - Fraud can occur at ANY amount — not just high amounts
+
+
+================================================================================
+6. MACHINE LEARNING MODEL
+================================================================================
+
+ALGORITHM: Random Forest Classifier
+
+WHAT IS RANDOM FOREST?
+  Random Forest is an ensemble learning method that builds multiple decision
+  trees during training and outputs the class that is the mode (majority vote)
+  of the individual trees' predictions.
+
+  Each tree is trained on:
+    - A random subset of training samples (bootstrap sampling)
+    - A random subset of features at each split
+
+  This randomness makes the forest robust to overfitting and noise.
+
+MODEL CONFIGURATION:
+  - n_estimators  : 200 (200 decision trees in the forest)
+  - max_depth     : 12  (maximum depth of each tree)
+  - class_weight  : "balanced" (gives more weight to fraud class)
+  - n_jobs        : -1  (uses all CPU cores for parallel training)
+  - random_state  : 42  (reproducibility)
+  - n_features_in : 29  (V1–V28 + Amount, Time is dropped)
+
+WHY RANDOM FOREST FOR THIS PROBLEM?
+  1. Handles class imbalance well (especially with class_weight="balanced")
+  2. Robust to outliers — fraud transactions are extreme outliers
+  3. No need for feature scaling (though Amount is scaled for consistency)
+  4. Provides feature importance scores
+  5. Fast prediction time — critical for real-time fraud detection
+  6. Interpretable — can explain which features drove the decision
+  7. Handles non-linear relationships between features
+
+TRAINING PIPELINE:
+  Step 1: Load creditcard.csv
+  Step 2: Scale Amount column using StandardScaler
+  Step 3: Drop Time column (not useful for generalization)
+  Step 4: Split: 80% training, 20% testing (stratified by Class)
+  Step 5: Apply SMOTE to training set only
+  Step 6: Train RandomForestClassifier on balanced training set
+  Step 7: Evaluate on original (unbalanced) test set
+  Step 8: Save model as fraud_model.pkl and scaler as scaler.pkl
+
+MODEL EVALUATION RESULTS (on test set of 56,962 transactions):
+
+  Class         Precision   Recall   F1-Score   Support
+  Legitimate    1.00        1.00     1.00       56,864
+  Fraud         0.53        0.85     0.65           98
+
+  Overall Accuracy : 100% (misleading due to imbalance)
+  Macro Avg F1     : 0.82
+  ROC-AUC Score    : 0.981  ← This is the key metric
+
+UNDERSTANDING THE METRICS:
+  - Precision (Fraud) = 0.53 : Of all transactions flagged as fraud, 53% are
+    actually fraud. (47% are false alarms — acceptable in banking)
+  - Recall (Fraud) = 0.85    : The model catches 85% of all actual fraud cases.
+    Missing 15% of fraud is the cost of fewer false alarms.
+  - ROC-AUC = 0.981          : Near-perfect discrimination between fraud and
+    legitimate. 1.0 = perfect, 0.5 = random guessing.
+  - F1-Score = 0.65          : Harmonic mean of precision and recall.
+
+WHY RECALL IS MORE IMPORTANT THAN PRECISION HERE:
+  In fraud detection, missing a fraud (False Negative) is more costly than
+  flagging a legitimate transaction (False Positive). Banks prefer to
+  investigate more alerts than to miss actual fraud. Hence, high recall (0.85)
+  is prioritized over high precision.
+
+MODEL FILES:
+  - fraud_model.pkl : Serialized RandomForestClassifier (joblib format)
+  - scaler.pkl      : Fitted StandardScaler for Amount normalization
+  - Location        : backend/fraud_app/ml/
+
+FALLBACK MECHANISM:
+  If model files are not present (e.g., dataset not downloaded yet), the system
+  automatically uses a rule-based detection engine:
+    - Amount > $5000  → +40% risk score
+    - Amount > $2000  → +20% risk score
+    - |V14| > 10      → +30% risk score
+    - |V1|  > 5       → +15% risk score
+    - |V3|  > 5       → +15% risk score
+  This ensures the application works even without training.
+
+
+================================================================================
+7. BACKEND ARCHITECTURE — DJANGO REST FRAMEWORK
+================================================================================
+
+The backend is a Django REST Framework (DRF) application organized into 4 apps:
+
+--- 7.1 fraud_app (Core App) ---
+
+MODELS:
+
+  Card:
+    - user          : ForeignKey to Django's built-in User model
+    - card_last4    : Last 4 digits only (security — never store full number)
+    - holder_name   : Cardholder name
+    - expiry        : MM/YY format
+    - card_type     : VISA / Mastercard / Amex
+    - status        : ACTIVE / FROZEN / BLOCKED
+    - created_at    : Auto timestamp
+
+  Transaction:
+    - card          : ForeignKey to Card (nullable — can detect without a card)
+    - amount        : Float — transaction amount
+    - location      : String — where transaction occurred
+    - merchant      : String — merchant name
+    - timestamp     : Auto timestamp
+    - prediction    : "Fraud" / "Legitimate" / "Pending"
+    - fraud_probability : Float 0.0–1.0 — model confidence
+    - raw_features  : JSONField — stores all input features for audit trail
+    - alert_sent    : Boolean — whether email alert was sent
+
+  FraudAlert:
+    - transaction   : OneToOne to Transaction
+    - message       : Alert description
+    - created_at    : Auto timestamp
+    - resolved      : Boolean
+    - resolved_at   : Timestamp when resolved
+
+SERVICES (services.py):
+  The fraud detection logic is separated into a service layer:
+    - _load_model()         : Lazy-loads model and scaler from .pkl files
+    - build_feature_vector(): Constructs 29-feature array [V1..V28, Amount]
+    - detect_fraud(data)    : Main function — returns (prediction, probability)
+    - _rule_based_detection(): Fallback when model not available
+
+  The model is loaded ONCE into memory when first called and cached globally.
+  This means subsequent requests are extremely fast (no disk I/O).
+
+API VIEWS:
+
+  DetectFraudView     POST /api/detect/
+    - Accepts transaction data
+    - Validates with FraudDetectionInputSerializer
+    - Calls detect_fraud() service
+    - Creates Transaction record
+    - Creates FraudAlert if fraud detected
+    - Returns prediction, risk score, transaction ID
+    - Permission: AllowAny (no auth required for detection)
+
+  TransactionListView GET /api/transactions/
+    - Returns paginated list of all transactions
+    - Supports ?prediction=Fraud filter
+    - Permission: IsAuthenticated
+
+  CardListCreateView  GET/POST /api/cards/
+    - List user's cards or add a new card
+    - Permission: IsAuthenticated
+
+  FreezeCardView      POST /api/cards/<id>/freeze/
+    - Sets card status to FROZEN
+    - Permission: IsAuthenticated (owner only)
+
+  FraudAlertListView  GET /api/alerts/
+    - Returns unresolved fraud alerts
+    - Permission: IsAuthenticated
+
+  ResolveAlertView    POST /api/alerts/<id>/resolve/
+    - Marks alert as resolved with timestamp
+    - Permission: IsAuthenticated
+
+--- 7.2 users app ---
+  RegisterView        POST /api/users/register/   — Create account (AllowAny)
+  ProfileView         GET/PATCH /api/users/profile/ — View/edit profile
+
+--- 7.3 analytics app ---
+  FraudStatsView      GET /api/analytics/stats/
+    Returns: total_transactions, fraud_transactions, legitimate_transactions,
+             fraud_rate, avg_fraud_probability, total_amount, open_alerts
+
+  DailyTrendView      GET /api/analytics/daily/
+    Returns: date-grouped counts of fraud vs legitimate transactions
+
+  HourlyTransactionsView GET /api/analytics/hourly/
+    Returns: hour-grouped transaction counts
+
+  TopRiskyCardsView   GET /api/analytics/risky-cards/
+    Returns: top 10 cards with most fraud transactions
+
+--- 7.4 Authentication ---
+  POST /api/auth/login/    — Returns access + refresh JWT tokens
+  POST /api/auth/refresh/  — Refreshes expired access token
+
+  JWT Configuration:
+    - Access token lifetime  : 1 hour
+    - Refresh token lifetime : 7 days
+    - Algorithm              : HS256
+
+--- 7.5 Celery Async Tasks ---
+  process_fraud_detection(transaction_id):
+    - Runs in background after transaction is saved
+    - Re-runs fraud detection
+    - Sends email alert if fraud probability > 0.8
+    - Retries up to 3 times on failure
+    - Requires Redis as message broker
+
+--- 7.6 Notifications ---
+  send_fraud_alert(user_email, amount, transaction_id):
+    - Sends formatted email alert to cardholder
+    - Uses Django's email backend
+    - In development: prints to console (EMAIL_BACKEND = console)
+    - In production: configure SMTP (Gmail, SendGrid, etc.)
+
+
+================================================================================
+8. FRONTEND ARCHITECTURE — REACT
+================================================================================
+
+The frontend is a React 18 single-page application (SPA).
+
+--- 8.1 Routing ---
+  React Router DOM v6 handles client-side routing:
+    /login          → Login page (public)
+    /register       → Register page (public)
+    /dashboard      → Analytics dashboard (protected)
+    /transactions   → Transaction history (protected)
+    /detect         → Fraud detection form (protected)
+    /cards          → Card management (protected)
+    /alerts         → Fraud alerts (protected)
+    *               → Redirects to /dashboard
+
+  Protected routes are wrapped in PrivateLayout which checks auth state.
+  Unauthenticated users are redirected to /login.
+
+--- 8.2 Authentication Flow ---
+  1. User submits login form → POST /api/auth/login/
+  2. Backend returns { access: "...", refresh: "..." }
+  3. Tokens stored in localStorage
+  4. Axios interceptor attaches "Authorization: Bearer <token>" to all requests
+  5. On 401 response: interceptor auto-refreshes token using refresh token
+  6. On refresh failure: clears localStorage, redirects to /login
+  7. AuthContext provides { user, login, logout } to all components
+
+--- 8.3 Theme System ---
+  ThemeContext provides { dark, toggle } to all components.
+  - Persisted to localStorage as "theme" key
+  - Applies Bootstrap's data-bs-theme="dark" to <html> element
+  - All Bootstrap components automatically adapt to dark mode
+  - Custom backgrounds and card styles also switch via inline styles
+
+--- 8.4 Risk Score System (RiskScore.js) ---
+  getRisk(probability):
+    Input  : float 0.0–1.0
+    Output : { score, label, color, emoji, textColor }
+    Logic  :
+      0–30%   → Safe        (green,  #198754, 🟢)
+      30–70%  → Medium Risk (yellow, #ffc107, 🟡)
+      70–100% → High Risk   (red,    #dc3545, 🔴)
+
+  RiskMeter component:
+    - Circular gauge showing score percentage
+    - Animated progress bar
+    - Color-coded glow effect
+    - Scale legend (0–30 Safe, 30–70 Medium, 70–100 High)
+    - Used on the Detect Fraud result panel
+
+  RiskBadge component:
+    - Compact inline badge for tables
+    - Shows: emoji + score% + label
+    - Used in Dashboard and Transactions tables
+
+--- 8.5 API Service Layer (api.js) ---
+  Single Axios instance with baseURL = http://localhost:8000/api
+  All API functions are exported:
+    login(), register(), getProfile()
+    detectFraud(), getTransactions(), getTransactionDetail()
+    getCards(), addCard(), freezeCard()
+    getAlerts(), resolveAlert()
+    getFraudStats(), getDailyTrend(), getHourlyData(), getRiskyCards()
+
+--- 8.6 Dashboard Charts ---
+  Uses Chart.js with react-chartjs-2:
+    - Line chart  : Daily fraud vs legitimate trend over time
+    - Doughnut    : Fraud vs Legitimate proportion
+  Charts adapt colors to dark/light mode automatically.
+
+--- 8.7 Detect Fraud Page Features ---
+  - 3 preset buttons with real dataset fraud examples
+  - Core fields: Amount, Merchant, Location
+  - Collapsible advanced section: V1–V14 PCA features
+  - Real-time risk meter on submission
+  - Context-aware alert banners (green/yellow/red)
+  - Every analyzed transaction auto-saved to database
+
+
+================================================================================
+9. COMPLETE API REFERENCE
+================================================================================
+
+BASE URL: http://localhost:8000/api/
+
+Authentication: Bearer JWT token in Authorization header
+  Header: Authorization: Bearer <access_token>
+
+ENDPOINT                        METHOD  AUTH    DESCRIPTION
+------------------------------  ------  ------  ----------------------------
+/api/auth/login/                POST    No      Get JWT tokens
+/api/auth/refresh/              POST    No      Refresh access token
+/api/users/register/            POST    No      Create user account
+/api/users/profile/             GET     Yes     Get own profile
+/api/users/profile/             PATCH   Yes     Update profile
+/api/detect/                    POST    No      Detect fraud in transaction
+/api/transactions/              GET     Yes     List all transactions
+/api/transactions/<id>/         GET     Yes     Get single transaction
+/api/cards/                     GET     Yes     List user's cards
+/api/cards/                     POST    Yes     Add new card
+/api/cards/<id>/freeze/         POST    Yes     Freeze a card
+/api/alerts/                    GET     Yes     List open fraud alerts
+/api/alerts/<id>/resolve/       POST    Yes     Resolve an alert
+/api/analytics/stats/           GET     Yes     Overall fraud statistics
+/api/analytics/daily/           GET     Yes     Daily transaction trend
+/api/analytics/hourly/          GET     Yes     Hourly transaction data
+/api/analytics/risky-cards/     GET     Yes     Top risky cards
+
+DETECT FRAUD — REQUEST BODY:
+{
+  "amount": 1.00,          // Required. Transaction amount
+  "merchant": "Unknown",   // Optional. Merchant name
+  "location": "Unknown",   // Optional. Transaction location
+  "card_id": 1,            // Optional. Link to a saved card
+  "V1": 0.03,              // Optional. PCA features (default 0)
+  "V2": 4.13,
+  ...
+  "V14": -10.73
+}
+
+DETECT FRAUD — RESPONSE:
+{
+  "transaction_id": 42,
+  "prediction": "Fraud",
+  "fraud_probability": 0.992,
+  "amount": 1.0,
+  "timestamp": "2026-03-17T10:30:00Z"
+}
+
+LOGIN — REQUEST:
+{ "username": "admin", "password": "admin123" }
+
+LOGIN — RESPONSE:
+{ "access": "<jwt_token>", "refresh": "<refresh_token>" }
+
+
+================================================================================
+10. DATABASE SCHEMA
+================================================================================
+
+Table: fraud_app_card
+  id            INTEGER PRIMARY KEY
+  user_id       INTEGER FK → auth_user.id
+  card_last4    VARCHAR(4)
+  holder_name   VARCHAR(100)
+  expiry        VARCHAR(5)
+  card_type     VARCHAR(20)
+  status        VARCHAR(20)   [ACTIVE/FROZEN/BLOCKED]
+  created_at    DATETIME
+
+Table: fraud_app_transaction
+  id                  INTEGER PRIMARY KEY
+  card_id             INTEGER FK → fraud_app_card.id (nullable)
+  amount              FLOAT
+  location            VARCHAR(200)
+  merchant            VARCHAR(200)
+  timestamp           DATETIME
+  prediction          VARCHAR(20)   [Fraud/Legitimate/Pending]
+  fraud_probability   FLOAT
+  raw_features        JSON
+  alert_sent          BOOLEAN
+
+Table: fraud_app_fraudalert
+  id            INTEGER PRIMARY KEY
+  transaction_id INTEGER FK → fraud_app_transaction.id (unique)
+  message       TEXT
+  created_at    DATETIME
+  resolved      BOOLEAN
+  resolved_at   DATETIME (nullable)
+
+Table: auth_user (Django built-in)
+  id, username, email, password (hashed), first_name, last_name, date_joined
+
+
+================================================================================
+11. SECURITY FEATURES
+================================================================================
+
+1. JWT Authentication
+   - Stateless tokens — no server-side sessions
+   - Short-lived access tokens (1 hour)
+   - Refresh tokens (7 days) for seamless re-authentication
+   - Auto-refresh on 401 responses
+
+2. Card Number Security
+   - Only last 4 digits stored in database
+   - Full card numbers are NEVER stored or transmitted
+   - Displayed as: **** **** **** 1234
+
+3. Password Security
+   - Django's built-in password hashing (PBKDF2 + SHA256)
+   - Minimum 8 characters enforced
+   - Common password validation
+
+4. CORS Protection
+   - Only http://localhost:3000 allowed in development
+   - Configured via django-cors-headers
+
+5. Input Validation
+   - All API inputs validated by DRF serializers
+   - Amount must be > 0.01
+   - String fields have max_length limits
+
+6. Audit Trail
+   - Every transaction stores raw_features JSON for forensic analysis
+   - FraudAlert records are never deleted, only resolved
+
+
+================================================================================
+12. HOW TO RUN THE PROJECT
+================================================================================
+
+PREREQUISITES:
+  - Python 3.10+
+  - Node.js 18+
+  - Git
+
+STEP 1 — Clone and setup virtual environment:
+  cd "D:\Django Credit"
+  python -m venv venv
+  venv\Scripts\activate          (Windows)
+  pip install -r requirements.txt
+
+STEP 2 — Run database migrations:
+  cd backend
+  python manage.py migrate
+  python manage.py createsuperuser
+
+STEP 3 — Train the ML model (optional):
+  Download creditcard.csv from Kaggle and place in ml_pipeline/dataset/
+  cd "D:\Django Credit"
+  python ml_pipeline/train_model.py
+  (Takes 2–5 minutes. Saves model to backend/fraud_app/ml/)
+
+STEP 4 — Start Django backend:
+  cd backend
+  ..\venv\Scripts\python manage.py runserver
+  API available at: http://127.0.0.1:8000/
+
+STEP 5 — Start React frontend:
+  cd frontend
+  npm install
+  npm start
+  App available at: http://localhost:3000/
+
+STEP 6 — Access admin panel:
+  http://127.0.0.1:8000/admin/
+  Username: admin
+  Password: admin123
+
+DEFAULT TEST CREDENTIALS:
+  Register a new account at http://localhost:3000/register
+  Or use admin/admin123 for the superuser account
+
+
+================================================================================
+13. CONFIRMED FRAUD TEST EXAMPLES
+================================================================================
+
+These are REAL fraud transactions from the Kaggle dataset.
+Use them in the Detect Fraud page to see the system in action.
+
+EXAMPLE 1 — 99.2% Risk (High Risk / Fraud)
+  Amount: 1.00
+  V1: 0.03,  V2: 4.13,  V3: -6.56, V4: 6.35,  V5: 1.33
+  V6: -2.51, V7: -1.69, V8: 0.30,  V9: -3.14, V10: -6.05
+  V11: 6.75, V12: -8.95, V13: 0.70, V14: -10.73
+
+EXAMPLE 2 — 98.7% Risk (High Risk / Fraud)
+  Amount: 1.00
+  V1: 0.01, V3: -6.24, V12: -9.85, V14: -10.69
+
+EXAMPLE 3 — 93.6% Risk (High Risk / Fraud)
+  Amount: 1.00
+  V1: 1.23, V3: -4.30, V12: -4.61, V14: -6.08
+
+EXAMPLE 4 — 91.3% Risk (High Risk / Fraud)
+  Amount: 59.00
+  V1: -4.40, V3: -2.59, V11: 4.90, V12: -10.91, V14: -6.77
+
+EXAMPLE 5 — 90.3% Risk (High Risk / Fraud)
+  Amount: 0.00
+  V1: -2.31, V3: -1.61, V4: 4.00, V11: 3.20, V12: -2.90, V14: -4.29
+
+SAFE TRANSACTION EXAMPLE (for comparison):
+  Amount: 45.99
+  V1: -0.31, V2: 0.47, V3: 1.18, V4: 0.24, V14: 0.17
+  Expected: ~5% risk (Safe / Green)
+
+KEY FRAUD PATTERN:
+  V14 < -4.0  →  Strong fraud signal
+  V3  < -4.0  →  Strong fraud signal
+  V12 < -8.0  →  Strong fraud signal
+  Small amounts ($1, $0) with extreme V values = card testing fraud
+
+
+================================================================================
+14. SYSTEM FLOW — HOW A TRANSACTION IS PROCESSED
+================================================================================
+
+Step-by-step flow when a user submits a transaction:
+
+  1. USER fills in Amount, Merchant, Location (and optionally V1–V14)
+     on the React Detect Fraud page.
+
+  2. REACT sends POST request to /api/detect/ with JSON payload.
+     Axios attaches JWT token in Authorization header.
+
+  3. DJANGO receives request in DetectFraudView.
+     FraudDetectionInputSerializer validates all fields.
+     Missing V features default to 0.0.
+
+  4. SERVICES.PY builds 29-feature vector: [V1, V2, ..., V28, Amount_scaled]
+     If model files exist:
+       → StandardScaler normalizes the Amount value
+       → RandomForestClassifier.predict() returns 0 or 1
+       → RandomForestClassifier.predict_proba() returns [P(legit), P(fraud)]
+     If model files missing:
+       → Rule-based engine calculates score from Amount + V1, V3, V14
+
+  5. TRANSACTION RECORD created in database with:
+       prediction = "Fraud" or "Legitimate"
+       fraud_probability = float (e.g., 0.992)
+       raw_features = all input values (JSON)
+
+  6. If FRAUD detected:
+       FraudAlert record created in database
+       (Celery task queued to send email if Redis available)
+
+  7. RESPONSE returned to React:
+       { transaction_id, prediction, fraud_probability, amount, timestamp }
+
+  8. REACT displays RiskMeter with animated gauge showing risk percentage.
+     Color-coded alert banner shown (green/yellow/red).
+     Transaction automatically appears in Transactions page.
+
+
+================================================================================
+15. DOCKER DEPLOYMENT
+================================================================================
+
+The project includes Docker configuration for production deployment.
+
+docker-compose.yml services:
+  db       : PostgreSQL 15 database
+  redis    : Redis 7 (Celery broker)
+  backend  : Django + Gunicorn (3 workers)
+  celery   : Celery worker for async tasks
+  frontend : Node.js serving React app
+
+To deploy with Docker:
+  cd docker
+  docker-compose up --build
+
+Environment variables (set in docker-compose.yml or .env):
+  SECRET_KEY        : Django secret key
+  DEBUG             : False for production
+  REDIS_URL         : redis://redis:6379/0
+  DB_NAME/USER/PASS : PostgreSQL credentials
+  EMAIL_HOST_USER   : SMTP email for alerts
+
+
+================================================================================
+16. VIVA QUESTIONS AND ANSWERS
+================================================================================
+
+SECTION A — PROJECT UNDERSTANDING
+
+Q1. What is the main objective of this project?
+A:  To build a real-time credit card fraud detection system using Machine
+    Learning integrated into a full-stack web application. The system analyzes
+    transaction features and predicts whether a transaction is fraudulent,
+    providing a risk score from 0–100% with color-coded risk levels.
+
+Q2. Why did you choose this topic?
+A:  Credit card fraud causes billions of dollars in losses globally every year.
+    Traditional rule-based systems are insufficient for detecting sophisticated
+    fraud patterns. Machine Learning can identify complex, non-linear patterns
+    in transaction data that humans cannot. This project demonstrates a
+    practical, industry-relevant application of ML in fintech.
+
+Q3. What is the difference between your system and a simple rule-based system?
+A:  A rule-based system uses fixed thresholds (e.g., "flag if amount > $1000").
+    It misses fraud at low amounts and generates false alarms for legitimate
+    high-value transactions. Our ML model learns patterns from 284,807 real
+    transactions and can detect fraud even at $1.00 if the PCA features are
+    anomalous. The model generalizes to unseen patterns.
+
+Q4. What happens if the ML model is not trained yet?
+A:  The system has a rule-based fallback engine in services.py that activates
+    automatically. It scores transactions based on amount thresholds and
+    absolute values of V1, V3, V14 features. This ensures the application
+    is always functional.
+
+SECTION B — DATASET QUESTIONS
+
+Q5. What dataset did you use and where is it from?
+A:  The Kaggle Credit Card Fraud Detection dataset from the Machine Learning
+    Group at Université Libre de Bruxelles (ULB). It contains 284,807 real
+    European credit card transactions from September 2013, with 492 fraud cases.
+
+Q6. What are V1–V28 features? Why are they anonymized?
+A:  V1–V28 are the result of PCA (Principal Component Analysis) transformation
+    applied to the original transaction features. The real features (merchant
+    category, location, card type, etc.) are confidential for privacy and
+    security reasons. PCA transforms them into orthogonal components that
+    preserve the statistical patterns while hiding the original meaning.
+
+Q7. What is class imbalance and how did you handle it?
+A:  Class imbalance means the dataset has very few fraud cases (0.173%) compared
+    to legitimate transactions (99.827%). A naive model would predict "Legitimate"
+    for everything and achieve 99.83% accuracy while catching zero fraud.
+    We handled this using SMOTE (Synthetic Minority Oversampling Technique),
+    which generates synthetic fraud samples by interpolating between existing
+    fraud samples in feature space. SMOTE was applied only to the training set
+    to prevent data leakage.
+
+Q8. Why did you drop the Time column?
+A:  The Time column represents seconds elapsed since the first transaction in
+    the dataset. It is specific to this particular 2-day dataset and has no
+    meaning for new transactions. Including it would cause the model to learn
+    time-specific patterns that don't generalize. Amount is more meaningful
+    and is retained (after scaling).
+
+Q9. What is the fraud rate in the dataset?
+A:  0.173% — only 492 out of 284,807 transactions are fraudulent. This extreme
+    imbalance is why accuracy is a misleading metric and why we use ROC-AUC,
+    Precision, Recall, and F1-Score instead.
+
+SECTION C — MACHINE LEARNING QUESTIONS
+
+Q10. Why did you choose Random Forest over other algorithms?
+A:   Random Forest was chosen because:
+     - It handles class imbalance with class_weight="balanced"
+     - It is robust to outliers (fraud transactions are extreme outliers)
+     - It provides feature importance scores for interpretability
+     - It does not require feature scaling (unlike SVM, KNN)
+     - It is fast at prediction time (critical for real-time detection)
+     - It avoids overfitting through ensemble averaging
+     Other options considered: Logistic Regression (too linear), SVM (slow
+     on large data), Neural Networks (overkill for tabular data, less
+     interpretable).
+
+Q11. What is SMOTE and why is it applied only to training data?
+A:   SMOTE (Synthetic Minority Oversampling Technique) creates new synthetic
+     fraud samples by selecting a fraud sample, finding its k nearest neighbors
+     in feature space, and generating new points along the line segments between
+     them. It is applied ONLY to training data because applying it to test data
+     would create artificial samples that don't represent real-world distribution,
+     leading to overly optimistic evaluation metrics (data leakage).
+
+Q12. What is ROC-AUC and what does 0.981 mean?
+A:   ROC-AUC (Receiver Operating Characteristic — Area Under Curve) measures
+     the model's ability to discriminate between classes across all possible
+     classification thresholds. A value of 1.0 = perfect classifier,
+     0.5 = random guessing. Our score of 0.981 means the model has near-perfect
+     ability to distinguish fraud from legitimate transactions.
+
+Q13. Why is Recall more important than Precision for fraud detection?
+A:   Recall = TP / (TP + FN) — measures how many actual frauds are caught.
+     Precision = TP / (TP + FP) — measures how many flagged transactions are
+     actually fraud. In fraud detection, a False Negative (missing real fraud)
+     is far more costly than a False Positive (flagging a legitimate transaction).
+     Missing fraud means financial loss. A false alarm means a customer call.
+     Hence, we optimize for high Recall (0.85) even at the cost of lower
+     Precision (0.53).
+
+Q14. What is the fraud probability threshold used?
+A:   The default threshold is 0.5 (50%). Transactions with fraud probability
+     >= 0.5 are classified as Fraud. This is configurable via
+     FRAUD_PROBABILITY_THRESHOLD in settings.py. Lowering the threshold
+     increases Recall (catches more fraud) but decreases Precision (more
+     false alarms). Banks typically use 0.3–0.5 depending on risk tolerance.
+
+Q15. How does the model make a prediction?
+A:   1. Input features [V1..V28, Amount_scaled] are assembled into a 29-element
+        numpy array.
+     2. The array is passed to RandomForestClassifier.predict_proba() which
+        returns [P(legitimate), P(fraud)] from all 200 trees voting.
+     3. The fraud probability (second element) is the risk score.
+     4. If probability >= 0.5, prediction = "Fraud", else "Legitimate".
+
+SECTION D — TECHNICAL / ARCHITECTURE QUESTIONS
+
+Q16. What is Django REST Framework and why use it?
+A:   DRF is a powerful toolkit for building Web APIs in Django. It provides:
+     serializers (input/output validation), authentication classes, permission
+     classes, viewsets, and browsable API. It reduces boilerplate code and
+     follows REST conventions. We use it to expose the fraud detection model
+     as a REST API that the React frontend consumes.
+
+Q17. What is JWT authentication and how does it work?
+A:   JWT (JSON Web Token) is a stateless authentication mechanism. After login,
+     the server issues a signed token containing user identity. The client
+     stores this token and sends it in the Authorization header with every
+     request. The server verifies the signature without database lookup.
+     Access tokens expire in 1 hour; refresh tokens in 7 days. This is more
+     scalable than session-based auth for APIs.
+
+Q18. What is Celery and why is it used?
+A:   Celery is a distributed task queue for Python. It allows long-running
+     operations (like sending emails, re-running ML analysis) to be executed
+     asynchronously in background workers, without blocking the API response.
+     Redis acts as the message broker — it queues tasks that Celery workers
+     pick up and execute. This keeps API response times fast (< 100ms).
+
+Q19. Why is the card number stored as only last 4 digits?
+A:   Storing full card numbers is a PCI-DSS (Payment Card Industry Data Security
+     Standard) violation. If the database is compromised, attackers would have
+     full card numbers. Storing only the last 4 digits allows users to identify
+     their cards while keeping sensitive data secure.
+
+Q20. What is CORS and why is it configured?
+A:   CORS (Cross-Origin Resource Sharing) is a browser security mechanism that
+     blocks web pages from making requests to a different domain than the one
+     that served the page. Since React runs on port 3000 and Django on port 8000,
+     they are different origins. django-cors-headers adds the necessary HTTP
+     headers to allow the React frontend to call the Django API.
+
+Q21. How does the React frontend handle authentication state?
+A:   AuthContext (React Context API) maintains global auth state. On app load,
+     it checks localStorage for a stored JWT token. If found, the user is
+     considered authenticated. The Axios interceptor automatically attaches
+     the token to every API request and handles token refresh on 401 errors.
+     PrivateLayout component redirects unauthenticated users to /login.
+
+Q22. What is the purpose of the raw_features JSONField in Transaction?
+A:   It stores all input features (V1–V28, Amount, location, merchant) as a
+     JSON object for every transaction. This creates an audit trail — if a
+     fraud decision is disputed, analysts can re-examine exactly what data
+     was used to make the prediction. It also enables re-running the model
+     with updated algorithms on historical data.
+
+SECTION E — ADVANCED / CRITICAL THINKING
+
+Q23. What are the limitations of this system?
+A:   1. The dataset is from 2013 — fraud patterns evolve over time (concept drift)
+     2. PCA anonymization means we cannot explain which real features matter
+     3. The model may not generalize to non-European transaction patterns
+     4. No real-time streaming — processes one transaction at a time
+     5. SMOTE generates synthetic data which may not represent real fraud
+     6. Precision of 0.53 means 47% of flagged transactions are false alarms
+
+Q24. How would you improve this system in production?
+A:   1. Use XGBoost or LightGBM for better performance on tabular data
+     2. Implement model retraining pipeline with new fraud data (MLOps)
+     3. Add SHAP (SHapley Additive exPlanations) for explainable AI
+     4. Implement real-time streaming with Apache Kafka
+     5. Add behavioral analysis (user spending patterns, geolocation)
+     6. Use ensemble of models (Random Forest + Neural Network)
+     7. Implement A/B testing for model versions
+     8. Add monitoring for model drift detection
+
+Q25. What is concept drift and how does it affect fraud detection?
+A:   Concept drift occurs when the statistical properties of the target variable
+     change over time. Fraudsters adapt their techniques — patterns that were
+     fraudulent in 2013 may look legitimate today, and new fraud patterns emerge.
+     A model trained on old data becomes less accurate over time. Solution:
+     continuous model retraining with new labeled data, and monitoring of
+     prediction confidence distributions.
+
+Q26. How would you handle a real-time transaction stream (millions/day)?
+A:   1. Replace synchronous API with Apache Kafka message queue
+     2. Use Celery workers scaled horizontally to process messages
+     3. Cache the ML model in Redis for shared access across workers
+     4. Use PostgreSQL with connection pooling (PgBouncer)
+     5. Deploy on Kubernetes for auto-scaling
+     6. Use feature stores (Feast) for real-time feature computation
+
+Q27. What is the difference between supervised and unsupervised fraud detection?
+A:   Supervised (our approach): Uses labeled data (fraud/not fraud) to train
+     a classifier. Requires labeled historical fraud data. High accuracy when
+     labels are available.
+     Unsupervised: Uses anomaly detection (Isolation Forest, Autoencoders) to
+     find transactions that deviate from normal patterns. Does not require
+     labels. Useful when fraud labels are unavailable or for detecting new
+     fraud types not seen in training data.
+
+Q28. Why use StandardScaler only on the Amount column?
+A:   V1–V28 are already PCA-transformed and are naturally normalized (mean ~0,
+     std ~1). Amount is in raw Euros and can range from $0 to $25,691, which
+     would dominate distance-based calculations. StandardScaler transforms
+     Amount to have mean=0 and std=1, putting it on the same scale as V features.
+     Random Forest is actually scale-invariant, but scaling Amount ensures
+     consistency with how the model was trained.
+
+Q29. How does the system ensure the same preprocessing at prediction time?
+A:   The StandardScaler is fitted on the training data and saved as scaler.pkl
+     using joblib. At prediction time, the same fitted scaler is loaded and
+     used to transform the Amount value. This ensures the same mean and
+     standard deviation are used for scaling, preventing training-serving skew.
+
+Q30. What would happen if you trained the model without SMOTE?
+A:   Without SMOTE, the model would be trained on 99.83% legitimate and 0.17%
+     fraud samples. It would learn to predict "Legitimate" for almost everything
+     because that minimizes training loss. Recall for fraud would drop to near
+     zero — the model would miss most fraud cases. SMOTE balances the training
+     set so the model learns fraud patterns equally well.
+
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+Total Pages     : ~25 equivalent
+Last Updated    : March 2026
+Project Version : 1.0.0
+================================================================================

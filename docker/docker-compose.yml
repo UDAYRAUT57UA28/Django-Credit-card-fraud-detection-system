@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: fraud_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=your-production-secret-key
+      - REDIS_URL=redis://redis:6379/0
+      - DB_NAME=fraud_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=db
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ../backend/fraud_app/ml:/app/fraud_app/ml
+
+  celery:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: celery -A fraud_project worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DB_HOST=db
+    depends_on:
+      - redis
+      - db
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../frontend:/app
+    command: sh -c "npm install && npm start"
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
+
+volumes:
+  postgres_data:

@@ -1,0 +1,82 @@
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+
+# ============================================================
+# Virtual Environment
+# ============================================================
+venv/
+env/
+.venv/
+ENV/
+
+# ============================================================
+# Django
+# ============================================================
+*.log
+*.pot
+db.sqlite3
+backend/db.sqlite3
+backend/staticfiles/
+backend/media/
+backend/fraud_project/__pycache__/
+backend/**/__pycache__/
+
+# ============================================================
+# Environment Variables (NEVER push secrets)
+# ============================================================
+.env
+.env.local
+.env.production
+.env.*.local
+
+# ============================================================
+# ML Models & Large Files
+# Keep .pkl files out — they are large and can be retrained.
+# Users should run train_model.py + train_extra_models.py locally.
+# ============================================================
+backend/fraud_app/ml/*.pkl
+ml_pipeline/__pycache__/
+
+# Dataset — 150MB CSV, too large for GitHub (use Git LFS or share separately)
+ml_pipeline/dataset/creditcard.csv
+ml_pipeline/dataset/archive.zip
+
+# ============================================================
+# React / Node
+# ============================================================
+frontend/node_modules/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# ============================================================
+# IDE & OS
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Docker
+# ============================================================
+docker/.env
