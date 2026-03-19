@@ -20,7 +20,6 @@ class TransactionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "timestamp", "prediction", "fraud_probability", "alert_sent"]
 
-
 class FraudDetectionInputSerializer(serializers.Serializer):
     """Input serializer for fraud detection API."""
     amount = serializers.FloatField(min_value=0.01)

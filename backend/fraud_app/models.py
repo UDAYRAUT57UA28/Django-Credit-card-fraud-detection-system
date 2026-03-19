@@ -29,6 +29,8 @@ class Transaction(models.Model):
         ("Fraud", "Fraud"),
         ("Pending", "Pending"),
     ]
+    # Direct user ownership — ensures privacy even for card-less transactions
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transactions", null=True, blank=True)
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="transactions", null=True, blank=True)
     amount = models.FloatField()
     location = models.CharField(max_length=200, blank=True, default="Unknown")

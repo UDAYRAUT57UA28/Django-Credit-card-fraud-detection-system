@@ -18,7 +18,6 @@ def velocity_check(card_id, window_minutes=10, max_transactions=5):
     count = Transaction.objects.filter(card_id=card_id, timestamp__gte=since).count()
     return count >= max_transactions, count
 
-
 def merchant_blacklist_check(merchant_name):
     """
     Returns (is_blacklisted: bool, reason: str)

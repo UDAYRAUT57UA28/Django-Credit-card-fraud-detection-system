@@ -1,23 +1,31 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Count, Avg, Sum
-from django.db.models.functions import TruncHour, TruncDate
-from fraud_app.models import Transaction, FraudAlert
+from django.db.models import Count, Avg, Sum, Q
+from django.db.models.functions import TruncDate, TruncHour
+from fraud_app.models import Transaction, FraudAlert, Card
 
 
 class FraudStatsView(APIView):
-    """GET /api/analytics/stats/ — Overall fraud statistics."""
+    """
+    GET /api/analytics/stats/
+    Returns statistics scoped to the logged-in user only.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        total = Transaction.objects.count()
-        fraud_count = Transaction.objects.filter(prediction="Fraud").count()
-        legit_count = Transaction.objects.filter(prediction="Legitimate").count()
-        avg_fraud_prob = Transaction.objects.aggregate(avg=Avg("fraud_probability"))["avg"] or 0
-        total_amount = Transaction.objects.aggregate(total=Sum("amount"))["total"] or 0
-        fraud_amount = Transaction.objects.filter(prediction="Fraud").aggregate(total=Sum("amount"))["total"] or 0
-        open_alerts = FraudAlert.objects.filter(resolved=False).count()
+        # All queries filtered to this user
+        qs = Transaction.objects.filter(user=request.user)
+
+        total = qs.count()
+        fraud_count = qs.filter(prediction="Fraud").count()
+        legit_count = qs.filter(prediction="Legitimate").count()
+        avg_fraud_prob = qs.aggregate(avg=Avg("fraud_probability"))["avg"] or 0
+        total_amount = qs.aggregate(total=Sum("amount"))["total"] or 0
+        fraud_amount = qs.filter(prediction="Fraud").aggregate(total=Sum("amount"))["total"] or 0
+        open_alerts = FraudAlert.objects.filter(
+            transaction__user=request.user, resolved=False
+        ).count()
 
         return Response({
             "total_transactions": total,
@@ -31,29 +39,17 @@ class FraudStatsView(APIView):
         })
 
 
-class HourlyTransactionsView(APIView):
-    """GET /api/analytics/hourly/ — Transactions grouped by hour."""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        data = (
-            Transaction.objects
-            .annotate(hour=TruncHour("timestamp"))
-            .values("hour")
-            .annotate(total=Count("id"), fraud=Count("id", filter=__import__("django.db.models", fromlist=["Q"]).Q(prediction="Fraud")))
-            .order_by("hour")
-        )
-        return Response(list(data))
-
-
 class DailyTrendView(APIView):
-    """GET /api/analytics/daily/ — Daily fraud trend."""
+    """
+    GET /api/analytics/daily/
+    Daily fraud trend for the logged-in user only.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from django.db.models import Q
         data = (
             Transaction.objects
+            .filter(user=request.user)
             .annotate(date=TruncDate("timestamp"))
             .values("date")
             .annotate(
@@ -66,15 +62,43 @@ class DailyTrendView(APIView):
         return Response(list(data))
 
 
-class TopRiskyCardsView(APIView):
-    """GET /api/analytics/risky-cards/ — Cards with most fraud transactions."""
+class HourlyTransactionsView(APIView):
+    """
+    GET /api/analytics/hourly/
+    Hourly breakdown for the logged-in user only.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from fraud_app.models import Card
+        data = (
+            Transaction.objects
+            .filter(user=request.user)
+            .annotate(hour=TruncHour("timestamp"))
+            .values("hour")
+            .annotate(
+                total=Count("id"),
+                fraud=Count("id", filter=Q(prediction="Fraud")),
+            )
+            .order_by("hour")
+        )
+        return Response(list(data))
+
+
+class TopRiskyCardsView(APIView):
+    """
+    GET /api/analytics/risky-cards/
+    Cards with most fraud transactions — scoped to the logged-in user.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
         data = (
             Card.objects
-            .annotate(fraud_count=Count("transactions", filter=__import__("django.db.models", fromlist=["Q"]).Q(transactions__prediction="Fraud")))
+            .filter(user=request.user)
+            .annotate(fraud_count=Count(
+                "transactions",
+                filter=Q(transactions__prediction="Fraud")
+            ))
             .filter(fraud_count__gt=0)
             .values("id", "card_last4", "holder_name", "fraud_count")
             .order_by("-fraud_count")[:10]
