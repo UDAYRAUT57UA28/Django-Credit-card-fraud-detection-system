@@ -3,6 +3,9 @@
 A production-level fraud detection platform built with **Django REST Framework + React + Machine Learning**.
 
 ---
+## Deploy: Using Render and Vercel
+## Link: https://django-credit-card-fraud-detection.vercel.app/
+---
 
 ## How to Run
 
